@@ -24,44 +24,38 @@ class PipelineModel(BaseModel):
     nodes: List[NodeModel]
     edges: List[EdgeModel]
 
-
-def directed_dfs(node, flag, graph):
-    # if node is already visited then it is cyclic
-    if flag[node] == VISITING:
-        return False
-    if flag[node] == VISITED:
-        return True
-    # marking as visited
-    flag[node] = VISITING
-
-    for neighbour in graph[node]:
-        if not directed_dfs(neighbour, flag, graph):
-            return False
-    
-    # node is visited, so backtracking
-    flag[node]=VISITED
-    return True
-
-def is_dag_func(nodes, edges):
-    print(nodes, edges, "nodes, edges--")
-    graph = defaultdict(list)
+# using Kahn's algorithm
+def isDag(nodes, edges):
+    n = len(nodes)
+    indegree = [0] * n
+    adj = [[] for _ in range(n)]
+    node_index = {node.id: i for i, node in enumerate(nodes)}
     for edge in edges:
-        graph[edge.source].append(edge.target)
-    # -1 denotes node is not visited yet
-    #  0 denotes node is visited and is in stack
-    #  1 denotes node is visited and popped out of the stack
-    flag = {node.id: UNVISITED for node in nodes}
+        source = node_index[edge.source]
+        target = node_index[edge.target]
+        print(source, target, "source, target", edge.source, "edge.source", edge.target, "edge.target")
+        adj[source].append(target)
+        indegree[target] += 1
+    
+    queue, count = [], 0 # maintaining queue for nodes with indegree 0
+    for i in range(n):
+        if indegree[i]==0:
+            queue.append(i)
+    
+    while queue:
+        node = queue.pop(0)
+        count += 1
 
-    for node in nodes:
-        if flag[node.id] == UNVISITED:
-            if not directed_dfs(node.id, flag, graph):
-                return False
-    return True
+        for neighbor in adj[node]:
+            indegree[neighbor] -= 1
+            if indegree[neighbor] == 0:
+                queue.append(neighbor)
+    return count == n
 
 def validate_dag(pipeline: PipelineModel):
     nodes = pipeline.nodes
     edges = pipeline.edges
-    if not is_dag_func(nodes, edges):
+    if not isDag(nodes, edges):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Pipeline must be a DAG (cycle detected)"
